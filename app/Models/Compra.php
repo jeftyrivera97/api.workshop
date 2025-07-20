@@ -12,40 +12,44 @@ class Compra extends Model
 {
     use HasFactory;
     use SoftDeletes;
-    protected $table="compras";
+    
+    protected $table = "compras";
     protected $primaryKey = 'id';
-    protected $fillable = ['codigo_compra','fecha','descripcion','id_categoria','id_proveedor','id_tipo_cuenta','id_estado_cuenta','fecha_pago',
-    'gravado15','gravado18','impuesto15','impuesto18','exento','exonerado','total','id_usuario','id_estado','created_at','updated_at'];
+    protected $fillable = [
+        'codigo_compra', 'fecha', 'descripcion', 'id_categoria', 'id_proveedor', 
+        'id_tipo_cuenta', 'id_estado_cuenta', 'fecha_pago', 'gravado15', 'gravado18', 
+        'impuesto15', 'impuesto18', 'exento', 'exonerado', 'total', 'id_usuario', 
+        'id_estado', 'created_at', 'updated_at'
+    ];
 
-    public function categorias(): HasMany
+    // ✅ Corrección: BelongsTo con parámetros correctos
+    public function categoria(): BelongsTo
     {
-        return $this->hasMany(CompraCategoria::class, 'id', 'id_categoria');
+        return $this->belongsTo(CompraCategoria::class, 'id_categoria');
     }
 
-    public function proveedores(): HasMany
+    public function proveedor(): BelongsTo
     {
-        return $this->hasMany(Proveedor::class, 'id', 'id_proveedor');
-    }
-    public function tipoCuentas(): HasMany
-    {
-        return $this->hasMany(TipoCuenta::class, 'id', 'id_tipo_cuenta');
+        return $this->belongsTo(Proveedor::class, 'id_proveedor');
     }
 
-    public function estadoCuentas(): HasMany
+    public function tipoCuenta(): BelongsTo
     {
-        return $this->hasMany(TipoCuenta::class, 'id', 'id_estado_cuentas');
+        return $this->belongsTo(TipoCuenta::class, 'id_tipo_cuenta');
     }
 
-    public function estados(): HasMany
+    public function estadoCuenta(): BelongsTo
     {
-        return $this->hasMany(Estado::class, 'id', 'id_estado');
+        return $this->belongsTo(EstadoCuenta::class, 'id_estado_cuenta');
     }
 
-    public function users(): HasMany
+    public function estado(): BelongsTo
     {
-        return $this->hasMany(User::class, 'id', 'id_usuario');
+        return $this->belongsTo(Estado::class, 'id_estado');
     }
 
-
-
+    public function usuario(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_usuario');
+    }
 }

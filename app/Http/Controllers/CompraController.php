@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Resources\CompraResource;
 use App\Models\Compra;
 use App\Models\CompraCategoria;
+use App\Models\CompraTipo;
 use App\Models\Proveedor;
-
 use Illuminate\Support\Arr;
-
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class CompraController extends Controller
 {
@@ -17,28 +18,90 @@ class CompraController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function indexGerencia()
+
+    public function index(Request $request)
     {
-        $modulo = "Compras";
-        $chartLabel = "Compras del Mes";
-        $mes = now()->format('F');
-        $numMes = now()->format('m');
-        $mes = $this->obtenerMes($numMes);
-        $year = now()->format('y');
+        try {
+            $extraParam = $request->get('extraParam'); // ✅ Recibe el parámetro
+            Log::info('Parámetro recibido:', ['extraParam' => $extraParam]);
 
-        if ($numMes == 1) {
-            $numMesA = 12;
-            $yearA = $year - 1;
-        } else {
-            $numMesA = $numMes - 1;
-            $yearA = $year - 1;
+            $tableHeaders = array(
+                1 => "ID",
+                2 => "# Factura",
+                3 => "Fecha",
+                4 => "Descripcion",
+                5 => "Categoria",
+                6 => "Proveedor",
+                7 => "Total",
+            );
+            $fechaActual = now();
+            $fechaAnterior = $fechaActual->copy()->subMonth();
+
+            $numMes = $fechaActual->format('m');
+            $numMesAnterior = $fechaAnterior->format('m');
+            $year = $fechaActual->format('Y');
+            $yearAnterior = $fechaAnterior->format('Y');
+
+            $fecha_inicial = "{$year}-{$numMes}-01";
+            $fecha_final = $fechaActual->endOfMonth()->format('Y-m-d');
+            $fecha_inicial_anterior = "{$yearAnterior}-{$numMesAnterior}-01";
+            $fecha_final_anterior = $fechaAnterior->endOfMonth()->format('Y-m-d');
+
+            $moduleName = "compra";
+            $moduleTitle = "Compras";
+
+            $dataGraficaMes = $this->graficaMesActual($year);
+
+            $registrosMesActual = Compra::whereBetween('fecha', [$fecha_inicial, $fecha_final])->where('id_estado', 1)->get();
+
+            $totalMes = Compra::whereBetween('fecha', [$fecha_inicial, $fecha_final])->sum('total');
+            if ($totalMes <= 0) {
+                return 0; // Return 0 if no purchases in the month
+                $tiposCategorias = [];
+                $categoriasMes = [];
+            } else {
+                $totalMes = "L. " . number_format($totalMes, 2, '.', ',');
+                $tiposCategorias = $this->tiposMes($year, $numMes);
+                $categoriasMes = $this->categoriasMes($year, $numMes);
+            }
+
+            $totalMesAnterior = Compra::whereBetween('fecha', [$fecha_inicial_anterior, $fecha_final_anterior])->sum('total');
+            $totalMesAnterior = "L. " . number_format($totalMesAnterior, 2, '.', ',');
+
+            $totalAnual = Compra::where('fecha', '>=', "$year-01-01")->where('fecha', '<=', "$year-12-31")->sum('total');
+            $totalAnual = "L. " . number_format($totalAnual, 2, '.', ',');
+
+            $data = CompraResource::collection(
+                Compra::with(['categoria', 'estado', 'usuario', 'proveedor'])
+                    ->where('id_estado', 1)
+                    ->whereBetween('fecha', [$fecha_inicial, $fecha_final])
+                    ->orderBy('fecha', 'desc')
+                    ->paginate(10)
+            )
+                ->additional([
+                    'tableHeaders' => $tableHeaders,
+                    'contador' => $registrosMesActual->count(),
+                    'moduleName' => $moduleName,
+                    'moduleTitle' => $moduleTitle,
+                    'totalMes' => $totalMes,
+                    'totalAnual' => $totalAnual,
+                    'dataGraficaMes' => $dataGraficaMes,
+                    'totalMesAnterior' => $totalMesAnterior,
+                    'tiposMes' => $tiposCategorias,
+                    'categoriasMes' => $categoriasMes,
+                ]);
+
+            return $data;
+        } catch (\Throwable $th) {
+            return response()->json([
+                'error' => 'Error al obtener las compras',
+                'message' => $th->getMessage(),
+            ], 500);
         }
+    }
 
-        $numMes = '01';
-
-        $fecha_inicial = "$year-$numMes-01";
-        $fecha_final = "$year-$numMes-31";
-
+    public function graficaMesActual($year)
+    {
         $enero = Compra::where('fecha', '>=', "$year-01-01")->where('fecha', '<=', "$year-01-31")->sum('total');
         $febrero = Compra::where('fecha', '>=', "$year-02-01")->where('fecha', '<=', "$year-02-31")->sum('total');
         $marzo = Compra::where('fecha', '>=', "$year-03-01")->where('fecha', '<=', "$year-03-31")->sum('total');
@@ -52,7 +115,7 @@ class CompraController extends Controller
         $noviembre = Compra::where('fecha', '>=', "$year-11-01")->where('fecha', '<=', "$year-11-31")->sum('total');
         $diciembre = Compra::where('fecha', '>=', "$year-12-01")->where('fecha', '<=', "$year-12-31")->sum('total');
 
-        $dataMes = collect([
+        $dataGraficaMes = collect([
 
             ['descripcion' => 'Enero', 'total' => $enero],
             ['descripcion' => 'Febrero', 'total' => $febrero],
@@ -66,169 +129,88 @@ class CompraController extends Controller
             ['descripcion' => 'Octubre', 'total' => $octubre],
             ['descripcion' => 'Noviembre', 'total' => $noviembre],
             ['descripcion' => 'Diciembre', 'total' => $diciembre],
-
-        ]);
-        $dataMes->toJson();
-
-
-        $periodo1 = Compra::where('fecha', '>=', "$year-$numMes-01")->where('fecha', '<=', "$year-$numMes-10")->sum('total');
-        $periodo2 = Compra::where('fecha', '>=', "$year-$numMes-11")->where('fecha', '<=', "$year-$numMes-20")->sum('total');
-        $periodo3 = Compra::where('fecha', '>=', "$year-$numMes-21")->where('fecha', '<=', "$year-$numMes-31")->sum('total');
-
-
-        $dataSemanal = collect([
-            ['descripcion' => "01 $mes al 10 $mes", 'total' => $periodo1],
-            ['descripcion' => "11 $mes al 20 $mes", 'total' => $periodo2],
-            ['descripcion' => "21 $mes al 31 $mes", 'total' => $periodo3],
         ]);
 
-        $dataSemanal->toJson();
+        $dataGraficaMes->toJson();
 
+        return $dataGraficaMes;
+    }
 
-        $data = CompraResource::collection(Compra::where('id_estado', 1)->where('fecha', '>=', $fecha_inicial)->where('fecha', '<=', $fecha_final)->orderBy('fecha')->get());
-        $totalC = Compra::where('fecha', '>=', $fecha_inicial)->where('fecha', '<=', $fecha_final)->sum('total');
-        $totalMes =  Compra::where('fecha', '>=', $fecha_inicial)->where('fecha', '<=', $fecha_final)->sum('total');
-        $totalAnual = Compra::where('fecha', '>=', "$year-01-01")->where('fecha', '<=', "$year-12-31")->sum('total');
-        $totalAnual = number_format($totalAnual, 2);
-        $totalAnual = "L. $totalAnual ";
-
-        $mesAnterior = Compra::where('fecha', '>=', "$yearA-$numMesA-01")->where('fecha', '<=', "$yearA-$numMesA-31")->sum('total');
-        $diferencia = $totalMes - $mesAnterior;
-        if ($mesAnterior < $totalMes) {
-            $diferencia = number_format($diferencia, 2);
-            $diferencia = "L. +$diferencia ";
-        } else {
-            $diferencia = number_format($diferencia, 2);
-            $diferencia = "L. $diferencia ";
-        }
-
-
-        $promedioSemanal = $totalMes / 4.5;
-        $promedioSemanal = number_format($promedioSemanal, 2);
-        $promedioSemanal = "L. $promedioSemanal ";
-        $totalMes = number_format($totalMes, 2);
-        $totalMes = "L. $totalMes ";
-
-        $total = Compra::where('fecha', '>=', $fecha_inicial)->where('fecha', '<=', $fecha_final)->sum('total');
-
+    public function categoriasMes($year, $mes)
+    {
         $dataCategorias = [];
         $categorias = CompraCategoria::all();
-        $contador = count($categorias);
+        $fecha_inicial = "$year-$mes-01";
+        $fecha_final = "$year-$mes-31";
 
-        for ($i = 0; $i < $contador; $i++) {
+        for ($i = 0; $i < count($categorias); $i++) {
             $id = $categorias[$i]->id;
-            $d = $categorias[$i]->descripcion;
+            $descripcion = $categorias[$i]->descripcion;
+            $total = Compra::where('fecha', '>=', $fecha_inicial)->where('fecha', '<=', $fecha_final)->sum('total');
+
             if ($totalCompra = Compra::where('fecha', '>=', $fecha_inicial)->where('fecha', '<=', $fecha_final)->where('id_categoria', $id)->sum('total')) {
-                $p = ($totalCompra * 100) / $total;
-                $p = number_format($p, 2, '.', '');
-                $descripcion = "$d | $p%";
-                $dataCategorias[$i] = Arr::add(['descripcion' => $descripcion], 'total', $totalCompra);
+                $porcentaje = ($totalCompra * 100) / $total;
+                $porcentaje = number_format($porcentaje, 2, '.', '');
+                $dataCategorias[$i] = [
+                    'descripcion' => $descripcion,
+                    'total' => $totalCompra,
+                    'porcentaje' => $porcentaje
+                ];
             }
         }
         $columns = array_column($dataCategorias, 'total');
         array_multisort($columns, SORT_DESC, $dataCategorias);
 
-        $dataProveedores = [];
-        $proveedores = Proveedor::all();
-        $contador = count($proveedores);
-
-        for ($i = 0; $i < $contador; $i++) {
-            $id = $proveedores[$i]->id;
-            $d = $proveedores[$i]->descripcion;
-            if ($totalCompra = Compra::where('fecha', '>=', $fecha_inicial)->where('fecha', '<=', $fecha_final)->where('id_proveedor', $id)->sum('total')) {
-                $p = ($totalCompra * 100) / $total;
-                $p = number_format($p, 2, '.', '');
-                $descripcion = "$d | $p%";
-                $dataProveedores[$i] = Arr::add(['descripcion' => $descripcion], 'total', $totalCompra);
-            }
-        }
-        $columns = array_column($dataProveedores, 'total');
-        array_multisort($columns, SORT_DESC, $dataProveedores);
-
-        $titleProveedores = "$modulo por Proveedores";
-        $titlePeriodos = "$modulo por Periodos";
-        $titleCategorias = "$modulo por Categorias";
-        $titleGrafica = "$modulo por Mes del $year";
-
-        $headers = array(
-            1 => "Descripcion",
-            2 => "Total",
-        );
-
-
-
-        // return Inertia::render('Compras/Index', compact('dataProveedores','year','diferencia','totalAnual','dataSemanal','mes',
-        // 'dataMes','data','totalMes','dataCategorias','promedioSemanal','modulo','chartLabel',
-        // 'titleProveedores','headers','titlePeriodos','titleCategorias','titleGrafica'));
-
-        return response()->json([
-            'dataProveedores' => $dataProveedores,
-            'year' => $year,
-            'diferencia' => $diferencia,
-            'totalAnual' => $totalAnual,
-            'dataSemanal' => $dataSemanal,
-            'mes' => $mes,
-            'dataMes' => $dataMes,
-            'data' => $data,
-            'totalMes' => $totalMes,
-            'dataCategorias' => $dataCategorias,
-            'promedioSemanal' => $promedioSemanal,
-            'modulo' => $modulo,
-            'chartLabel' => $chartLabel,
-            'titleProveedores' => $titleProveedores,
-            'headers' => $headers,
-            'titlePeriodos' => $titlePeriodos,
-            'titleCategorias' => $titleCategorias,
-            'titleGrafica' => $titleGrafica
-        ]);
+        usort($dataCategorias, function ($a, $b) {
+            return $b['total'] <=> $a['total'];
+        });
+        return $dataCategorias;
     }
 
-    public static function obtenerMes($n)
+
+    public function tiposMes($year, $mes)
     {
-        switch ($n) {
-            case '01':
-                $nombre = "Enero";
-                break;
-            case '02':
-                $nombre = "Febrero";
-                break;
-            case '03':
-                $nombre = "Marzo";
-                break;
-            case '04':
-                $nombre = "Abril";
-                break;
-            case '05':
-                $nombre = "Mayo";
-                break;
-            case '06':
-                $nombre = "Junio";
-                break;
-            case '07':
-                $nombre = "Julio";
-                break;
-            case '08':
-                $nombre = "Agosto";
-                break;
-            case '09':
-                $nombre = "Septiembre";
-                break;
-            case '10':
-                $nombre = "Octubre";
-                break;
-            case '11':
-                $nombre = "Noviembre";
-                break;
-            case '12':
-                $nombre = "Diciembre";
-                break;
 
-            default:
-                # code...
-                break;
+        $fecha_inicial = "$year-$mes-01";
+        $fecha_final = "$year-$mes-31";
+        $tipos_categorias = [];
+
+        $tipos = CompraTipo::all();
+        $categorias = CompraCategoria::all();
+        $contador = count($tipos);
+
+        for ($i = 0; $i < count($tipos); $i++) {
+            $contadorTipo = 0;
+            $id_tipo = $tipos[$i]->id;
+            $descripcion_tipo = $tipos[$i]->descripcion;
+
+            for ($j = 0; $j < count($categorias); $j++) {
+
+                $id_categoria = $categorias[$j]->id;
+                $id_tipo_categoria = $categorias[$j]->id_tipo;
+
+                if ($id_tipo == $id_tipo_categoria) {
+                    $totalCategoria = Compra::where('fecha', '>=', $fecha_inicial)->where('fecha', '<=', $fecha_final)->where('id_categoria', $id_categoria)->sum('total');
+                    $contadorTipo += $totalCategoria;
+                }
+            }
+            $totalMes = Compra::whereBetween('fecha', [$fecha_inicial, $fecha_final])->sum('total');
+            $porcentaje = ($contadorTipo * 100) / $totalMes;
+            $porcentaje = number_format($porcentaje, 2, '.', '');
+
+            $tipos_categorias[$i] = [
+                'descripcion' => $descripcion_tipo,
+                'total' => $contadorTipo,
+                'porcentaje' => $porcentaje
+            ];
         }
-        return $nombre;
+        usort($tipos_categorias, function ($a, $b) {
+            return $b['total'] <=> $a['total'];
+        });
+        return $tipos_categorias;
     }
+
+
 
     /**
      * Show the form for creating a new resource.

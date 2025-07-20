@@ -8,38 +8,63 @@ use App\Models\IngresoCategoria;
 use Illuminate\Support\Arr;
 use App\Http\Resources\IngresoResource;
 use App\Models\IngresoTipo;
+use Illuminate\Support\Facades\Log;
+
 
 class IngresoController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
+            $monthParam = $request->get('dateParam'); // "2025-07"
+            Log::info('Parámetro recibido:', ['dateParam' => $monthParam]);
+
+            $fechaParam = \Carbon\Carbon::createFromFormat('Y-m', $monthParam);
+            $year = $fechaParam->year;  // 2025
+            $mes = $fechaParam->month;  // 7 (sin cero inicial)
+            $mesFormatted = $fechaParam->format('m'); // "07" (con cero inicial)
+
+            // ✅ Fechas del mes actual (crear nuevas instancias)
+            $fecha_inicial = \Carbon\Carbon::createFromFormat('Y-m', $monthParam)->startOfMonth()->format('Y-m-d');
+            $fecha_final = \Carbon\Carbon::createFromFormat('Y-m', $monthParam)->endOfMonth()->format('Y-m-d');
+
+            // ✅ Fechas del mes anterior (crear nueva instancia y restar mes)
+            $fechaAnterior = \Carbon\Carbon::createFromFormat('Y-m', $monthParam)->subMonth();
+            $mesAnterior = $fechaAnterior->month;
+            $mesAnteriorFormatted = $fechaAnterior->format('m');
+
+            // ✅ Crear fechas del mes anterior desde cero
+            $fecha_inicial_anterior = \Carbon\Carbon::createFromFormat('Y-m', $monthParam)->subMonth()->startOfMonth()->format('Y-m-d');
+            $fecha_final_anterior = \Carbon\Carbon::createFromFormat('Y-m', $monthParam)->subMonth()->endOfMonth()->format('Y-m-d');
+
+            Log::info('Fechas Obtenidas:', [
+                'Fecha Inicial Seleccionada' => $fecha_inicial,
+                'Fecha Final Seleccionada' => $fecha_final,
+                'Mes Actual' => $mes,
+                'Mes Actual Formateado' => $mesFormatted,
+                'Año Actual' => $year,
+                'Fecha Inicial Anterior' => $fecha_inicial_anterior,
+                'Fecha Final Anterior' => $fecha_final_anterior,
+                'Mes Anterior' => $mesAnterior,
+                'Mes Anterior Formateado' => $mesAnteriorFormatted,
+
+            ]);
+
             $tableHeaders = array(
-                1 => "Fecha",
-                2 => "Descripcion",
-                3 => "Categoria",
-                4 => "Total",
+                1 => "ID",
+                2 => "Fecha",
+                3 => "Descripcion",
+                4 => "Categoria",
+                5 => "Total",
             );
-            $fechaActual = now();
-            $fechaAnterior = $fechaActual->copy()->subMonth();
-
-            $numMes = $fechaActual->format('m');
-            $numMesAnterior = $fechaAnterior->format('m');
-            $year = $fechaActual->format('Y');
-            $yearAnterior = $fechaAnterior->format('Y');
-
-            $fecha_inicial = "{$year}-{$numMes}-01";
-            $fecha_final = $fechaActual->endOfMonth()->format('Y-m-d');
-            $fecha_inicial_anterior = "{$yearAnterior}-{$numMesAnterior}-01";
-            $fecha_final_anterior = $fechaAnterior->endOfMonth()->format('Y-m-d');
 
             $moduleName = "ingreso";
             $moduleTitle = "Ingresos";
 
-            $dataGraficaMes = $this->graficaMesActual($year);
+            $dataGraficaMes = $this->graficaMes($year);
 
             $registrosMesActual = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])->where('id_estado', 1)->get();
 
@@ -52,8 +77,8 @@ class IngresoController extends Controller
             $totalAnual = Ingreso::where('fecha', '>=', "$year-01-01")->where('fecha', '<=', "$year-12-31")->sum('total');
             $totalAnual = "L. " . number_format($totalAnual, 2, '.', ',');
 
-            $tiposCategorias = $this->tiposMes($year, $numMes);
-            $categoriasMes = $this->categoriasMes($year, $numMes);
+            $tiposCategorias = $this->tiposMes($year, $mesFormatted);
+            $categoriasMes = $this->categoriasMes($year, $mesFormatted);
 
             $data = IngresoResource::collection(
                 Ingreso::with(['categoria', 'estado', 'usuario'])
@@ -75,8 +100,10 @@ class IngresoController extends Controller
                     'categoriasMes' => $categoriasMes,
                 ]);
 
+            Log::info('Data:', ['Data' => $data->toJson()]);
             return $data;
         } catch (\Throwable $th) {
+            Log::info('Error recibido:', ['error' => $th->getMessage(),]);
             return response()->json([
                 'error' => 'Error al obtener los ingresos',
                 'message' => $th->getMessage(),
@@ -84,7 +111,8 @@ class IngresoController extends Controller
         }
     }
 
-    public function graficaMesActual($year)
+
+    public function graficaMes($year)
     {
         $enero = Ingreso::where('fecha', '>=', "$year-01-01")->where('fecha', '<=', "$year-01-31")->sum('total');
         $febrero = Ingreso::where('fecha', '>=', "$year-02-01")->where('fecha', '<=', "$year-02-31")->sum('total');
@@ -122,124 +150,107 @@ class IngresoController extends Controller
 
     public function categoriasMes($year, $mes)
     {
+        // ✅ Usar fechas correctas con Carbon
+        $fecha_inicial = \Carbon\Carbon::create($year, $mes, 1)->startOfMonth()->format('Y-m-d');
+        $fecha_final = \Carbon\Carbon::create($year, $mes, 1)->endOfMonth()->format('Y-m-d');
+        
         $dataCategorias = [];
         $categorias = IngresoCategoria::all();
-        $fecha_inicial = "$year-$mes-01";
-        $fecha_final = "$year-$mes-31";
 
-        for ($i = 0; $i < count($categorias); $i++) {
-            $id = $categorias[$i]->id;
-            $descripcion = $categorias[$i]->descripcion;
-            $total = Ingreso::where('fecha', '>=', $fecha_inicial)->where('fecha', '<=', $fecha_final)->sum('total');
+        // ✅ Calcular total una sola vez
+        $total = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+            ->where('id_estado', 1)
+            ->sum('total');
 
-            if ($totalIngreso = Ingreso::where('fecha', '>=', $fecha_inicial)->where('fecha', '<=', $fecha_final)->where('id_categoria', $id)->sum('total')) {
+        // ✅ Verificar división por cero
+        if ($total <= 0) {
+            return [];
+        }
+
+        foreach ($categorias as $categoria) {
+            $totalIngreso = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+                ->where('id_estado', 1)
+                ->where('id_categoria', $categoria->id)
+                ->sum('total');
+
+            if ($totalIngreso > 0) {
                 $porcentaje = ($totalIngreso * 100) / $total;
                 $porcentaje = number_format($porcentaje, 2, '.', '');
-                $dataCategorias[$i] = [
-                    'descripcion' => $descripcion,
+
+                $dataCategorias[] = [
+                    'descripcion' => $categoria->descripcion,
                     'total' => $totalIngreso,
                     'porcentaje' => $porcentaje
                 ];
             }
         }
-        $columns = array_column($dataCategorias, 'total');
-        array_multisort($columns, SORT_DESC, $dataCategorias);
 
+        // ✅ Ordenar de mayor a menor
         usort($dataCategorias, function ($a, $b) {
             return $b['total'] <=> $a['total'];
         });
+
         return $dataCategorias;
     }
 
 
     public function tiposMes($year, $mes)
     {
-
-        $fecha_inicial = "$year-$mes-01";
-        $fecha_final = "$year-$mes-31";
+        // ✅ Usar fechas correctas con Carbon
+        $fecha_inicial = \Carbon\Carbon::create($year, $mes, 1)->startOfMonth()->format('Y-m-d');
+        $fecha_final = \Carbon\Carbon::create($year, $mes, 1)->endOfMonth()->format('Y-m-d');
+        
         $tipos_categorias = [];
-
         $tipos = IngresoTipo::all();
         $categorias = IngresoCategoria::all();
-        $contador = count($tipos);
 
-        for ($i = 0; $i < count($tipos); $i++) {
+        // ✅ Calcular total una sola vez y correctamente
+        $totalMes = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+            ->where('id_estado', 1)
+            ->sum('total');
+        
+        Log::info('Total Ingreso Tipo Mes:', ['total' => $totalMes]);
+        
+        // ✅ Verificar división por cero
+        if ($totalMes <= 0) {
+            return [];
+        }
+
+        foreach ($tipos as $index => $tipo) {
             $contadorTipo = 0;
-            $id_tipo = $tipos[$i]->id;
-            $descripcion_tipo = $tipos[$i]->descripcion;
+            $id_tipo = $tipo->id;
+            $descripcion_tipo = $tipo->descripcion;
 
-            for ($j = 0; $j < count($categorias); $j++) {
-
-                $id_categoria = $categorias[$j]->id;
-                $id_tipo_categoria = $categorias[$j]->id_tipo;
-
-                if ($id_tipo == $id_tipo_categoria) {
-                    $totalCategoria = Ingreso::where('fecha', '>=', $fecha_inicial)->where('fecha', '<=', $fecha_final)->where('id_categoria', $id_categoria)->sum('total');
+            // ✅ Usar foreach en lugar de loops manuales
+            foreach ($categorias as $categoria) {
+                if ($categoria->id_tipo == $id_tipo) {
+                    $totalCategoria = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+                        ->where('id_estado', 1)
+                        ->where('id_categoria', $categoria->id)
+                        ->sum('total');
                     $contadorTipo += $totalCategoria;
                 }
             }
-            $totalMes = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])->sum('total');
-            $porcentaje = ($contadorTipo * 100) / $totalMes;
-            $porcentaje = number_format($porcentaje, 2, '.', '');
 
-            $tipos_categorias[$i] = [
-                'descripcion' => $descripcion_tipo,
-                'total' => $contadorTipo,
-                'porcentaje' => $porcentaje
-            ];
+            // ✅ Solo agregar si hay datos
+            if ($contadorTipo > 0) {
+                $porcentaje = ($contadorTipo * 100) / $totalMes;
+                $porcentaje = number_format($porcentaje, 2, '.', '');
+
+                $tipos_categorias[] = [
+                    'descripcion' => $descripcion_tipo,
+                    'total' => $contadorTipo,
+                    'porcentaje' => $porcentaje
+                ];
+            }
         }
+
+        // ✅ Ordenar de mayor a menor
         usort($tipos_categorias, function ($a, $b) {
             return $b['total'] <=> $a['total'];
         });
+        
         return $tipos_categorias;
-    }
-
-
-    public static function obtenerMes($n)
-    {
-        switch ($n) {
-            case '01':
-                $nombre = "Enero";
-                break;
-            case '02':
-                $nombre = "Febrero";
-                break;
-            case '03':
-                $nombre = "Marzo";
-                break;
-            case '04':
-                $nombre = "Abril";
-                break;
-            case '05':
-                $nombre = "Mayo";
-                break;
-            case '06':
-                $nombre = "Junio";
-                break;
-            case '07':
-                $nombre = "Julio";
-                break;
-            case '08':
-                $nombre = "Agosto";
-                break;
-            case '09':
-                $nombre = "Septiembre";
-                break;
-            case '10':
-                $nombre = "Octubre";
-                break;
-            case '11':
-                $nombre = "Noviembre";
-                break;
-            case '12':
-                $nombre = "Diciembre";
-                break;
-
-            default:
-                # code...
-                break;
-        }
-        return $nombre;
     }
 
 
