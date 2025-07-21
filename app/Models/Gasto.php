@@ -16,18 +16,21 @@ class Gasto extends Model
     protected $primaryKey = 'id';
     protected $fillable = ['codigo_gasto','fecha','id_categoria','descripcion','total','id_usuario','id_estado'];
 
-    public function estados(): HasMany
+    // ✅ CORREGIDO: BelongsTo en lugar de HasMany
+    public function estado(): BelongsTo
     {
-        return $this->hasMany(Estado::class, 'id', 'id_estado');
+        return $this->belongsTo(Estado::class, 'id_estado', 'id');
     }
 
-    public function users(): HasMany
+    // ✅ CORREGIDO: BelongsTo en lugar de HasMany
+    public function usuario(): BelongsTo
     {
-        return $this->hasMany(User::class, 'id', 'id_usuario');
+        return $this->belongsTo(User::class, 'id_usuario', 'id');
     }
 
-    public function categorias(): HasMany
+    // ✅ CORREGIDO: BelongsTo en lugar de HasMany y nombre singular
+    public function categoria(): BelongsTo
     {
-        return $this->hasMany(GastoCategoria::class, 'id', 'id_categoria');
+        return $this->belongsTo(GastoCategoria::class, 'id_categoria', 'id');
     }
 }

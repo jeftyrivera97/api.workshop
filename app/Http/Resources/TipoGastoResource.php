@@ -14,13 +14,15 @@ class TipoGastoResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return [
+         return [
             'id' => $this->id,
             'descripcion' => $this->descripcion,
-            'id_estado' => EstadoResource::collection($this->estados),
-            'id_usuario' => UserResource::collection($this->users),
-            'created_at' => $this->descripcion,
-            'updated_at' => $this->descripcion,
+            // ✅ CORREGIDO: Usar relación singular sin collection
+            'estado' => new EstadoResource($this->estado),
+            'usuario' => new UserResource($this->usuario),
+            // ✅ CORREGIDO: Usar campos correctos
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
         ];
     }
 }

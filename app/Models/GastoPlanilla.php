@@ -12,20 +12,26 @@ class GastoPlanilla extends Model
 {
     use HasFactory;
     use SoftDeletes;
-    protected $table="gasto_planillas";
+    
+    protected $table = "gasto_planillas";
     protected $primaryKey = 'id';
-    protected $fillable = ['id_gasto','id_planilla','id_estado','created_at','updated_at'];
+    protected $fillable = ['id_gasto', 'id_planilla', 'id_estado', 'created_at', 'updated_at'];
 
-    public function estados(): HasMany
+    // ✅ CORREGIDO: BelongsTo en lugar de HasMany
+    public function estado(): BelongsTo
     {
-        return $this->hasMany(Estado::class, 'id', 'id_estado');
+        return $this->belongsTo(Estado::class, 'id_estado', 'id');
     }
-    public function gastos(): HasMany
+
+    // ✅ CORREGIDO: BelongsTo en lugar de HasMany y nombre singular
+    public function gasto(): BelongsTo
     {
-        return $this->hasMany(Gasto::class, 'id', 'id_gasto');
+        return $this->belongsTo(Gasto::class, 'id_gasto', 'id');
     }
-    public function planillas(): HasMany
+
+    // ✅ CORREGIDO: BelongsTo en lugar de HasMany y nombre singular
+    public function planilla(): BelongsTo
     {
-        return $this->hasMany(Planilla::class, 'id', 'id_planilla');
+        return $this->belongsTo(Planilla::class, 'id_planilla', 'id');
     }
 }
