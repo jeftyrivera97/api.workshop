@@ -12,17 +12,26 @@ class PlanillaTipo extends Model
 {
     use HasFactory;
     use SoftDeletes;
+    
     protected $table="planilla_tipos";
     protected $primaryKey = 'id';
     protected $fillable = ['descripcion','id_estado','id_usuario','created_at','updated_at'];
 
-    public function estados(): HasMany
+    // ✅ CORREGIDO: BelongsTo en lugar de HasMany
+    public function estado(): BelongsTo
     {
-        return $this->hasMany(Estado::class, 'id', 'id_estado');
+        return $this->belongsTo(Estado::class, 'id_estado', 'id');
     }
 
-    public function users(): HasMany
+    // ✅ CORREGIDO: BelongsTo en lugar de HasMany
+    public function usuario(): BelongsTo
     {
-        return $this->hasMany(User::class, 'id', 'id_usuario');
+        return $this->belongsTo(User::class, 'id_usuario', 'id');
+    }
+
+    // ✅ AGREGADO: Relación con categorías
+    public function categorias(): HasMany
+    {
+        return $this->hasMany(PlanillaCategoria::class, 'id_tipo', 'id');
     }
 }

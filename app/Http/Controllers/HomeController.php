@@ -2,37 +2,46 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Empleado;
-use App\Models\Planilla;
-use App\Models\PlanillaCategoria;
-use App\Models\PlanillaTipo;
+use App\Models\Compra;
+use App\Models\CompraCategoria;
+use App\Models\CompraTipo;
+use App\Models\Gasto;
+use App\Models\GastoCategoria;
+use App\Models\GastoTipo;
+use App\Models\Ingreso;
+use App\Models\IngresoCategoria;
+use App\Models\IngresoTipo;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
-use App\Http\Resources\PlanillaResource;
-use App\Models\EmpleadoCategoria;
 
-class PlanillaController extends Controller
+class HomeController extends Controller
 {
     /**
      * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
      */
-    public function index(Request $request)
+    public function index()
     {
         try {
-            $monthParam = $request->get('dateParam'); // "2025-07"
-            Log::info('Parámetro recibido:', ['dateParam' => $monthParam]);
+
+
+            $fechaParam = Carbon::now(); // Fecha de HOY
+            $monthParam = $fechaParam->format('Y-m'); // "2025-07"
 
             $fechaParam = Carbon::createFromFormat('Y-m', $monthParam);
             $year = $fechaParam->year;  // 2025
             $mes = $fechaParam->month;  // 7 (sin cero inicial)
             $mesFormatted = $fechaParam->format('m'); // "07" (con cero inicial)
 
+            // Fechas del año actual
+            $yearActual = Carbon::now()->year; // 2025
+            $fecha_inicial_año = Carbon::createFromFormat('Y', $yearActual)->startOfYear()->format('Y-m-d');
+            $fecha_final_año = Carbon::createFromFormat('Y', $yearActual)->endOfYear()->format('Y-m-d');
+
             // Fechas del mes actual
             $fecha_inicial = Carbon::createFromFormat('Y-m', $monthParam)->startOfMonth()->format('Y-m-d');
             $fecha_final = Carbon::createFromFormat('Y-m', $monthParam)->endOfMonth()->format('Y-m-d');
+
 
             // Fechas del mes anterior
             $fechaAnterior = Carbon::createFromFormat('Y-m', $monthParam)->subMonth();
@@ -50,82 +59,259 @@ class PlanillaController extends Controller
             $fecha_inicial_year_anterior = Carbon::createFromFormat('Y-m', $monthParam)->subYear()->startOfMonth()->format('Y-m-d');
             $fecha_final_year_anterior = Carbon::createFromFormat('Y-m', $monthParam)->subYear()->endOfMonth()->format('Y-m-d');
 
-            Log::info('Fechas Obtenidas:', [
-                'Fecha Inicial Seleccionada' => $fecha_inicial,
-                'Fecha Final Seleccionada' => $fecha_final,
-                'Mes Actual' => $mes,
-                'Mes Actual Formateado' => $mesFormatted,
-                'Año Actual' => $year,
-                'Fecha Inicial Anterior' => $fecha_inicial_anterior,
-                'Fecha Final Anterior' => $fecha_final_anterior,
-                'Mes Anterior' => $mesAnterior,
-                'Mes Anterior Formateado' => $mesAnteriorFormatted,
-            ]);
+            $moduleName = "inicio";
+            $moduleTitle = "Inicio";
 
-            $tableHeaders = array(
-                1 => "ID",
-                2 => "Fecha",
-                3 => "Descripcion",
-                4 => "Categoria",
-                5 => "Total",
-            );
-
-            $moduleName = "ingreso";
-            $moduleTitle = "Planillas";
-
-            $dataGraficaMes = $this->graficaMes($year);
-
-            $registrosMesActual = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+            $totalIngresosActual = Ingreso::whereBetween('fecha', [$fecha_inicial_año, $fecha_final_año])
                 ->where('id_estado', 1) // ✅ Agregar filtro
-                ->get();
+                ->sum('total');
 
-            $totalMes = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+            $totalComprasActual = Compra::whereBetween('fecha', [$fecha_inicial_año, $fecha_final_año])
+                ->where('id_estado', 1) // ✅ Agregar filtro
+                ->sum('total');
+
+            $totalGastosActual = Gasto::whereBetween('fecha', [$fecha_inicial_año, $fecha_final_año])
+                ->where('id_estado', 1) // ✅ Agregar filtro
+                ->sum('total');
+
+
+            $dataGraficaIngresos = $this->graficaIngresos($year);
+            $dataGraficaEgresos = $this->graficaEgresos($year);
+
+            $categoriasIngresosAnual = $this->categoriasIngresosAnual($year);
+            $categoriasComprasAnual = $this->categoriasComprasAnual($year);
+            $categoriasGastosAnual = $this->categoriasGastosAnual($year);
+
+            $balanceAnual = $totalIngresosActual - ($totalComprasActual + $totalGastosActual);
+
+
+
+            //  AGREGAR: Obtener datos del año anterior para comparación
+            $yearAnterior = $year - 1;
+            $fecha_inicial_año_anterior = Carbon::create($yearAnterior, 1, 1)->startOfYear()->format('Y-m-d');
+            $fecha_final_año_anterior = Carbon::create($yearAnterior, 12, 31)->endOfYear()->format('Y-m-d');
+
+            $totalIngresosAnterior = Ingreso::whereBetween('fecha', [$fecha_inicial_año_anterior, $fecha_final_año_anterior])
                 ->where('id_estado', 1)
                 ->sum('total');
-            $totalMes = "L. " . number_format($totalMes, 2, '.', ',');
 
-            $totalMesYearAnterior = Planilla::whereBetween('fecha', [$fecha_inicial_year_anterior, $fecha_final_year_anterior])
+            $totalComprasAnterior = Compra::whereBetween('fecha', [$fecha_inicial_año_anterior, $fecha_final_año_anterior])
                 ->where('id_estado', 1)
                 ->sum('total');
-            $totalMesYearAnterior = "L. " . number_format($totalMesYearAnterior, 2, '.', ',');
 
-            $totalAnual = Planilla::whereYear('fecha', $year)
+            $totalGastosAnterior = Gasto::whereBetween('fecha', [$fecha_inicial_año_anterior, $fecha_final_año_anterior])
                 ->where('id_estado', 1)
                 ->sum('total');
-            $totalAnual = "L. " . number_format($totalAnual, 2, '.', ',');
 
-            $tiposMes = $this->tiposMes($year, $mes);
-            $categoriasMes = $this->categoriasMes($year, $mes);
-            $analisisMes = $this->analisisMensual($categoriasMes, $tiposMes);
-            $empleadosMes = $this->empleadosMes($year, $mes);
-            $puestosMes = $this->puestosMes($year, $mes);
-            $areasMes = $this->areasMes($year, $mes);
+            $balanceAnterior = $totalIngresosAnterior - ($totalComprasAnterior + $totalGastosAnterior);
 
-            $data = PlanillaResource::collection(
-                Planilla::with(['categoria', 'estado', 'usuario', 'empleado.categoria']) // ✅ Agregar empleado.categoria
-                    ->where('id_estado', 1)
-                    ->whereBetween('fecha', [$fecha_inicial, $fecha_final])
-                    ->orderBy('fecha', 'desc')
-                    ->paginate(10)
-            )
-                ->additional([
-                    'tableHeaders' => $tableHeaders,
-                    'contador' => $registrosMesActual->count(),
-                    'moduleName' => $moduleName,
-                    'moduleTitle' => $moduleTitle,
-                    'totalMes' => $totalMes,
-                    'totalAnual' => $totalAnual,
-                    'dataGraficaMes' => $dataGraficaMes,
-                    'totalMesYearAnterior' => $totalMesYearAnterior,
-                    'tiposMes' => $tiposMes,
-                    'categoriasMes' => $categoriasMes,
-                    'analisisMensual' => $analisisMes,
-                    'empleadosMes' => $empleadosMes,
-                    'puestosMes' => $puestosMes,
-                    'areasMes' => $areasMes,
-                ]);
+            // ANÁLISIS COMPLETO DE BALANCE (Opción 2)
+            $totalEgresosActual = $totalComprasActual + $totalGastosActual;
+            $totalEgresosAnterior = $totalComprasAnterior + $totalGastosAnterior;
 
-            Log::info('Data:', ['Data' => $data->toJson()]);
+            $totales = [
+                'ingresosAnualActual' => $totalIngresosActual,
+                'comprasAnualActual' => $totalComprasActual,
+                'gastosAnualActual' => $totalGastosActual,
+                'balanceAnual' => $balanceAnual,
+
+                'ingresosAnualAnterior' => $totalIngresosAnterior,
+                'comprasAnualAnterior' => $totalComprasAnterior,
+                'gastosAnualAnterior' => $totalGastosAnterior,
+                'balanceAnterior' => $balanceAnterior,
+
+                'egresosAnualActual' => $totalEgresosActual,
+                'egresosAnualAnterior' => $totalEgresosAnterior,
+            ];
+
+
+            $tiposIngresosAnual = $this->tiposIngresosAnual($year);
+
+            // 1. Porcentaje de balance sobre ingresos (Margen de ganancia)
+            $margenGananciaActual = 0;
+            $margenGananciaAnterior = 0;
+            if ($totalIngresosActual > 0) {
+                $margenGananciaActual = ($balanceAnual * 100) / $totalIngresosActual;
+            }
+            if ($totalIngresosAnterior > 0) {
+                $margenGananciaAnterior = ($balanceAnterior * 100) / $totalIngresosAnterior;
+            }
+
+            // 2. Porcentaje de egresos sobre ingresos
+            $porcentajeEgresosActual = 0;
+            $porcentajeEgresosAnterior = 0;
+            if ($totalIngresosActual > 0) {
+                $porcentajeEgresosActual = ($totalEgresosActual * 100) / $totalIngresosActual;
+            }
+            if ($totalIngresosAnterior > 0) {
+                $porcentajeEgresosAnterior = ($totalEgresosAnterior * 100) / $totalIngresosAnterior;
+            }
+
+            // 3. Porcentaje de compras vs gastos (año actual)
+            $porcentajeCompras = 0;
+            $porcentajeGastos = 0;
+            if ($totalEgresosActual > 0) {
+                $porcentajeCompras = ($totalComprasActual * 100) / $totalEgresosActual;
+                $porcentajeGastos = ($totalGastosActual * 100) / $totalEgresosActual;
+            }
+
+            $porcentajes = [
+                'margen_ganancia_actual' => $margenGananciaActual,
+                'margen_ganancia_anterior' => $margenGananciaAnterior,
+                'porcentaje_egresos_actual' => $porcentajeEgresosActual,
+                'porcentaje_egresos_anterior' => $porcentajeEgresosAnterior,
+                'porcentaje_compras' => $porcentajeCompras,
+                'porcentaje_gastos' => $porcentajeGastos,
+            ];
+
+            // 4. Estado del balance actual
+            $estadoBalance = 'equilibrado';
+            $colorBalance = 'info';
+            if ($balanceAnual > 0) {
+                $estadoBalance = 'positivo';
+                $colorBalance = 'success';
+            } elseif ($balanceAnual < 0) {
+                $estadoBalance = 'negativo';
+                $colorBalance = 'danger';
+            }
+
+            $balances = [
+                'balance_anual' => $balanceAnual,
+                'estado_balance' => $estadoBalance,
+                'color_balance' => $colorBalance,
+            ];
+
+            // ✅ ANÁLISIS AVANZADO CON COMPARACIÓN (Opción 3)
+            // 5. Variaciones año vs año anterior
+            $variacionIngresos = 0;
+            $variacionEgresos = 0;
+            $variacionBalance = 0;
+            $tendenciaIngresos = 'igual';
+            $tendenciaEgresos = 'igual';
+            $tendenciaBalance = 'igual';
+
+            if ($totalIngresosAnterior > 0) {
+                $variacionIngresos = (($totalIngresosActual - $totalIngresosAnterior) * 100) / $totalIngresosAnterior;
+                $tendenciaIngresos = $variacionIngresos > 0 ? 'crecimiento' : ($variacionIngresos < 0 ? 'decrecimiento' : 'igual');
+            }
+
+            if ($totalEgresosAnterior > 0) {
+                $variacionEgresos = (($totalEgresosActual - $totalEgresosAnterior) * 100) / $totalEgresosAnterior;
+                $tendenciaEgresos = $variacionEgresos > 0 ? 'aumento' : ($variacionEgresos < 0 ? 'reduccion' : 'igual');
+            }
+
+            if ($balanceAnterior != 0) {
+                $variacionBalance = (($balanceAnual - $balanceAnterior) * 100) / abs($balanceAnterior);
+                $tendenciaBalance = $variacionBalance > 0 ? 'mejora' : ($variacionBalance < 0 ? 'deterioro' : 'igual');
+            }
+
+            // 6. Variación del margen de ganancia
+            $variacionMargen = $margenGananciaActual - $margenGananciaAnterior;
+            $tendenciaMargen = $variacionMargen > 0 ? 'mejora' : ($variacionMargen < 0 ? 'deterioro' : 'igual');
+
+            $variaciones = [
+                'variacion_ingresos' => $variacionIngresos,
+                'variacion_egresos' => $variacionEgresos,
+                'variacion_balance' => $variacionBalance,
+                'variacion_margen' => $variacionMargen,
+                'tendencia_ingresos' => $tendenciaIngresos,
+                'tendencia_egresos' => $tendenciaEgresos,
+                'tendencia_balance' => $tendenciaBalance,
+                'tendencia_margen' => $tendenciaMargen,
+            ];
+
+            // 7. Análisis de eficiencia (compras vs gastos)
+            $eficienciaCompras = 'equilibrado';
+            $colorEficiencia = 'info';
+            $recomendacionEficiencia = 'Mantén el equilibrio entre compras y gastos para una operación saludable.';
+
+            if ($totalEgresosActual > 0) {
+                if ($porcentajeCompras > 70) {
+                    $eficienciaCompras = 'compras_dominantes';
+                    $colorEficiencia = 'primary';
+                    $recomendacionEficiencia = 'Revisa si puedes optimizar las compras o negociar mejores precios con proveedores.';
+                } elseif ($porcentajeGastos > 70) {
+                    $eficienciaCompras = 'gastos_dominantes';
+                    $colorEficiencia = 'warning';
+                    $recomendacionEficiencia = 'Analiza los gastos administrativos y busca oportunidades de reducción.';
+                } else {
+                    $eficienciaCompras = 'equilibrado';
+                    $colorEficiencia = 'info';
+                    $recomendacionEficiencia = 'Buen balance entre compras y gastos. Sigue monitoreando para mantener la eficiencia.';
+                }
+            }
+
+            $eficiencia = [
+                'eficiencia_compras' => $eficienciaCompras,
+                'color_eficiencia' => $colorEficiencia,
+                'recomendacion' => $recomendacionEficiencia, // ✅ Se agrega la recomendación aquí
+            ];
+
+            // 8. Clasificación de rentabilidad
+            $clasificacionRentabilidad = 'no_clasificado';
+            $mensajeRentabilidad = '';
+            $recomendacionRentabilidad = '';
+
+            if ($margenGananciaActual >= 20) {
+                $clasificacionRentabilidad = 'excelente';
+                $mensajeRentabilidad = 'Rentabilidad excelente con margen superior al 20%';
+                $recomendacionRentabilidad = 'Mantén esta rentabilidad y considera reinversión para crecimiento';
+            } elseif ($margenGananciaActual >= 10) {
+                $clasificacionRentabilidad = 'buena';
+                $mensajeRentabilidad = 'Buena rentabilidad con margen entre 10% y 20%';
+                $recomendacionRentabilidad = 'Busca oportunidades para optimizar costos y mejorar margen';
+            } elseif ($margenGananciaActual >= 5) {
+                $clasificacionRentabilidad = 'aceptable';
+                $mensajeRentabilidad = 'Rentabilidad aceptable pero con margen bajo (5-10%)';
+                $recomendacionRentabilidad = 'Revisa estructura de costos y precios para mejorar rentabilidad';
+            } elseif ($margenGananciaActual > 0) {
+                $clasificacionRentabilidad = 'minima';
+                $mensajeRentabilidad = 'Rentabilidad mínima con margen muy bajo (0-5%)';
+                $recomendacionRentabilidad = 'Urgente: optimiza costos o aumenta precios para mejorar rentabilidad';
+            } elseif ($margenGananciaActual == 0) {
+                $clasificacionRentabilidad = 'equilibrio';
+                $mensajeRentabilidad = 'Punto de equilibrio - ingresos igualan egresos';
+                $recomendacionRentabilidad = 'Reduce costos o aumenta ingresos para generar ganancias';
+            } else {
+                $clasificacionRentabilidad = 'perdidas';
+                $mensajeRentabilidad = 'Operando con pérdidas - egresos superan ingresos';
+                $recomendacionRentabilidad = 'Crítico: reestructura operaciones para reducir pérdidas inmediatamente';
+            }
+
+            $rentabilidad = [
+                'clasificacion_rentabilidad' => $clasificacionRentabilidad,
+                'mensaje_rentabilidad' => $mensajeRentabilidad,
+                'recomendacion_rentabilidad' => $recomendacionRentabilidad,
+            ];
+
+            // ✅ AGREGAR TODOS LOS NUEVOS DATOS AL ARRAY
+            $data = [
+                'moduleName' => $moduleName,
+                'moduleTitle' => $moduleTitle,
+
+                // Totales
+                'totales' => $totales,
+                // Porcentajes
+                'porcentajes' => $porcentajes,
+                // Balances
+                'balances' => $balances,
+                // Variaciones
+                'variaciones' => $variaciones,
+                // Eficiencia
+                'eficiencia' => $eficiencia,
+                // Rentabilidad
+                'rentabilidad' => $rentabilidad,
+
+                // Datos para gráficas (mantener existentes)
+                'dataGraficaIngresos' => $dataGraficaIngresos,
+                'dataGraficaEgresos' => $dataGraficaEgresos,
+                'categoriasIngresosAnual' => $categoriasIngresosAnual,
+                'categoriasComprasAnual' => $categoriasComprasAnual,
+                'categoriasGastosAnual' => $categoriasGastosAnual,
+                'tiposIngresosAnual' => $tiposIngresosAnual,
+            ];
+
+            Log::info('Data:', ['Data' => json_encode($data)]);
             return $data;
         } catch (\Throwable $th) {
             Log::info('Error recibido:', ['error' => $th->getMessage()]);
@@ -136,7 +322,7 @@ class PlanillaController extends Controller
         }
     }
 
-    public function graficaMes($year)
+    public function graficaIngresos($year)
     {
         try {
             $meses = [
@@ -161,7 +347,7 @@ class PlanillaController extends Controller
                 $fechaInicial = Carbon::create($year, $i, 1)->startOfMonth()->format('Y-m-d');
                 $fechaFinal = Carbon::create($year, $i, 1)->endOfMonth()->format('Y-m-d');
 
-                $total = Planilla::whereBetween('fecha', [$fechaInicial, $fechaFinal])
+                $total = Ingreso::whereBetween('fecha', [$fechaInicial, $fechaFinal])
                     ->where('id_estado', 1)
                     ->sum('total');
 
@@ -182,17 +368,130 @@ class PlanillaController extends Controller
         }
     }
 
-    public function categoriasMes($year, $mes)
+    public function graficaEgresos($year)
+    {
+        try {
+            $meses = [
+                'Enero',
+                'Febrero',
+                'Marzo',
+                'Abril',
+                'Mayo',
+                'Junio',
+                'Julio',
+                'Agosto',
+                'Septiembre',
+                'Octubre',
+                'Noviembre',
+                'Diciembre'
+            ];
+
+            $dataGraficaMes = [];
+
+            for ($i = 1; $i <= 12; $i++) {
+
+                $fechaInicial = Carbon::create($year, $i, 1)->startOfMonth()->format('Y-m-d');
+                $fechaFinal = Carbon::create($year, $i, 1)->endOfMonth()->format('Y-m-d');
+
+                $totalCompras = Compra::whereBetween('fecha', [$fechaInicial, $fechaFinal])
+                    ->where('id_estado', 1)
+                    ->sum('total');
+
+                $totalGastos = Gasto::whereBetween('fecha', [$fechaInicial, $fechaFinal])
+                    ->where('id_estado', 1)
+                    ->sum('total');
+
+                $total = $totalCompras + $totalGastos;
+
+                $dataGraficaMes[] = [
+                    'descripcion' => $meses[$i - 1],
+                    'total' => $total,
+                    'mes_numero' => $i,
+                ];
+            }
+
+            return collect($dataGraficaMes);
+        } catch (\Throwable $th) {
+            Log::info('Error recibido:', ['error' => $th->getMessage()]);
+            return response()->json([
+                'error' => 'Error al obtener los egresos',
+                'message' => $th->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function tiposIngresosAnual($year)
+    {
+        try {
+            $fecha_inicial = Carbon::create($year, 1, 1)->startOfYear()->format('Y-m-d');
+            $fecha_final = Carbon::create($year, 12, 31)->endOfYear()->format('Y-m-d');
+
+            $tipos_categorias = [];
+            $tipos = IngresoTipo::all();
+            $categorias = IngresoCategoria::all();
+
+            $totalMes = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+                ->where('id_estado', 1)
+                ->sum('total');
+
+            Log::info('Total Ingreso Tipo Mes:', ['total' => $totalMes]);
+
+            if ($totalMes <= 0) {
+                return [];
+            }
+
+            foreach ($tipos as $tipo) {
+                $contadorTipo = 0;
+                $id_tipo = $tipo->id;
+                $descripcion_tipo = $tipo->descripcion;
+
+                foreach ($categorias as $categoria) {
+                    if ($categoria->id_tipo == $id_tipo) {
+                        $totalCategoria = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+                            ->where('id_estado', 1)
+                            ->where('id_categoria', $categoria->id)
+                            ->sum('total');
+                        $contadorTipo += $totalCategoria;
+                    }
+                }
+
+                if ($contadorTipo > 0) {
+                    $porcentaje = ($contadorTipo * 100) / $totalMes;
+                    $porcentaje = number_format($porcentaje, 2, '.', '');
+
+                    $tipos_categorias[] = [
+                        'descripcion' => $descripcion_tipo,
+                        'total' => $contadorTipo,
+                        'porcentaje' => $porcentaje
+                    ];
+                }
+            }
+
+            usort($tipos_categorias, function ($a, $b) {
+                return $b['total'] <=> $a['total'];
+            });
+
+            return $tipos_categorias;
+        } catch (\Throwable $th) {
+            Log::info('Error recibido:', ['error' => $th->getMessage()]);
+            return response()->json([
+                'error' => 'Error al obtener los ingresos',
+                'message' => $th->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function categoriasIngresosAnual($year)
     {
 
         try {
-            $fecha_inicial = Carbon::create($year, $mes, 1)->startOfMonth()->format('Y-m-d');
-            $fecha_final = Carbon::create($year, $mes, 1)->endOfMonth()->format('Y-m-d');
+            $fecha_inicial = Carbon::create($year, 1, 1)->startOfYear()->format('Y-m-d');
+            $fecha_final = Carbon::create($year, 12, 31)->endOfYear()->format('Y-m-d');
 
             $dataCategorias = [];
-            $categorias = PlanillaCategoria::all();
+            $categorias = IngresoCategoria::all();
 
-            $total = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+            $total = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])
                 ->where('id_estado', 1)
                 ->sum('total');
 
@@ -201,18 +500,18 @@ class PlanillaController extends Controller
             }
 
             foreach ($categorias as $categoria) {
-                $totalPlanilla = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+                $totalIngreso = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])
                     ->where('id_estado', 1)
                     ->where('id_categoria', $categoria->id)
                     ->sum('total');
 
-                if ($totalPlanilla > 0) {
-                    $porcentaje = ($totalPlanilla * 100) / $total;
+                if ($totalIngreso > 0) {
+                    $porcentaje = ($totalIngreso * 100) / $total;
                     $porcentaje = number_format($porcentaje, 2, '.', '');
 
                     $dataCategorias[] = [
                         'descripcion' => $categoria->descripcion,
-                        'total' => $totalPlanilla,
+                        'total' => $totalIngreso,
                         'porcentaje' => $porcentaje
                     ];
                 }
@@ -231,17 +530,18 @@ class PlanillaController extends Controller
             ], 500);
         }
     }
-    public function empleadosMes($year, $mes)
+
+    public function categoriasComprasAnual($year)
     {
 
         try {
-            $fecha_inicial = Carbon::create($year, $mes, 1)->startOfMonth()->format('Y-m-d');
-            $fecha_final = Carbon::create($year, $mes, 1)->endOfMonth()->format('Y-m-d');
+            $fecha_inicial = Carbon::create($year, 1, 1)->startOfYear()->format('Y-m-d');
+            $fecha_final = Carbon::create($year, 12, 31)->endOfYear()->format('Y-m-d');
 
             $dataCategorias = [];
-            $categorias = Empleado::all();
+            $categorias = CompraCategoria::all();
 
-            $total = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+            $total = Compra::whereBetween('fecha', [$fecha_inicial, $fecha_final])
                 ->where('id_estado', 1)
                 ->sum('total');
 
@@ -250,18 +550,18 @@ class PlanillaController extends Controller
             }
 
             foreach ($categorias as $categoria) {
-                $totalPlanilla = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+                $totalCompra = Compra::whereBetween('fecha', [$fecha_inicial, $fecha_final])
                     ->where('id_estado', 1)
-                    ->where('id_empleado', $categoria->id)
+                    ->where('id_categoria', $categoria->id)
                     ->sum('total');
 
-                if ($totalPlanilla > 0) {
-                    $porcentaje = ($totalPlanilla * 100) / $total;
+                if ($totalCompra > 0) {
+                    $porcentaje = ($totalCompra * 100) / $total;
                     $porcentaje = number_format($porcentaje, 2, '.', '');
 
                     $dataCategorias[] = [
                         'descripcion' => $categoria->descripcion,
-                        'total' => $totalPlanilla,
+                        'total' => $totalCompra,
                         'porcentaje' => $porcentaje
                     ];
                 }
@@ -275,90 +575,78 @@ class PlanillaController extends Controller
         } catch (\Throwable $th) {
             Log::info('Error recibido:', ['error' => $th->getMessage()]);
             return response()->json([
-                'error' => 'Error al obtener los ingresos',
+                'error' => 'Error al obtener las compras',
                 'message' => $th->getMessage(),
             ], 500);
         }
     }
-    public function puestosMes($year, $mes)
+
+    public function categoriasGastosAnual($year)
     {
+
         try {
-            $fecha_inicial = Carbon::create($year, $mes, 1)->startOfMonth()->format('Y-m-d');
-            $fecha_final = Carbon::create($year, $mes, 1)->endOfMonth()->format('Y-m-d');
+            $fecha_inicial = Carbon::create($year, 1, 1)->startOfYear()->format('Y-m-d');
+            $fecha_final = Carbon::create($year, 12, 31)->endOfYear()->format('Y-m-d');
 
-            $puestos_categorias = [];
-            $puestos = EmpleadoCategoria::all();
+            $dataCategorias = [];
+            $categorias = GastoCategoria::all();
 
-            $totalMes = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+            $total = Gasto::whereBetween('fecha', [$fecha_inicial, $fecha_final])
                 ->where('id_estado', 1)
                 ->sum('total');
 
-            Log::info('Total Planilla Puesto Mes:', ['total' => $totalMes]);
+            if ($total <= 0) {
+                return [];
+            }
 
-            // ✅ CORREGIDO: Iterar por cada categoría de empleado (puesto)
-            foreach ($puestos as $puesto) {
-                $id_categoria_empleado = $puesto->id;
-
-                // ✅ CONCATENAR: Descripción + Área + Rango
-                $descripcion_completa = $puesto->descripcion;
-                if (!empty($puesto->area)) {
-                    $descripcion_completa = "Puesto: " . $descripcion_completa . " - Area: " . $puesto->area;
-                }
-
-                // ✅ CORREGIDO: Sumar planillas de empleados que pertenecen a esta categoría
-                $totalPuesto = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+            foreach ($categorias as $categoria) {
+                $totalGasto = Gasto::whereBetween('fecha', [$fecha_inicial, $fecha_final])
                     ->where('id_estado', 1)
-                    ->whereHas('empleado', function ($query) use ($id_categoria_empleado) {
-                        $query->where('id_categoria', $id_categoria_empleado);
-                    })
+                    ->where('id_categoria', $categoria->id)
                     ->sum('total');
 
-                // ✅ SOLO INCLUIR si el total es mayor a 0
-                if ($totalPuesto > 0) {
-                    $porcentaje = $totalMes > 0 ? ($totalPuesto * 100) / $totalMes : 0;
+                if ($totalGasto > 0) {
+                    $porcentaje = ($totalGasto * 100) / $total;
                     $porcentaje = number_format($porcentaje, 2, '.', '');
 
-                    $puestos_categorias[] = [
-                        'descripcion' => $descripcion_completa,
-                        'total' => $totalPuesto,
+                    $dataCategorias[] = [
+                        'descripcion' => $categoria->descripcion,
+                        'total' => $totalGasto,
                         'porcentaje' => $porcentaje
                     ];
                 }
             }
 
-            // Ordenar por total descendente
-            usort($puestos_categorias, function ($a, $b) {
+            usort($dataCategorias, function ($a, $b) {
                 return $b['total'] <=> $a['total'];
             });
 
-            Log::info('Puestos de empleados procesados:', [
-                'total_puestos' => count($puestos_categorias),
-                'puestos' => $puestos_categorias
-            ]);
-
-            return $puestos_categorias;
+            return $dataCategorias;
         } catch (\Throwable $th) {
-            Log::error('Error en puestosMes:', ['error' => $th->getMessage()]);
-            return [];
+            Log::info('Error recibido:', ['error' => $th->getMessage()]);
+            return response()->json([
+                'error' => 'Error al obtener los gastos',
+                'message' => $th->getMessage(),
+            ], 500);
         }
     }
 
 
-    public function tiposMes($year, $mes)
+    public function tiposComprasAnual($year, $mes)
     {
         try {
             $fecha_inicial = Carbon::create($year, $mes, 1)->startOfMonth()->format('Y-m-d');
             $fecha_final = Carbon::create($year, $mes, 1)->endOfMonth()->format('Y-m-d');
 
             $tipos_categorias = [];
-            $tipos = PlanillaTipo::all();
-            $categorias = PlanillaCategoria::all();
+            $tipos = CompraTipo::all();
+            $categorias = CompraCategoria::all();
 
-            $totalMes = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+            $totalMes = Compra::whereBetween('fecha', [$fecha_inicial, $fecha_final])
                 ->where('id_estado', 1)
                 ->sum('total');
 
-            Log::info('Total Planilla Tipo Mes:', ['total' => $totalMes]);
+            Log::info('Total Compra Tipo Mes:', ['total' => $totalMes]);
 
             // ✅ Incluir todos los tipos, incluso los que tienen 0
             foreach ($tipos as $tipo) {
@@ -368,7 +656,7 @@ class PlanillaController extends Controller
 
                 foreach ($categorias as $categoria) {
                     if ($categoria->id_tipo == $id_tipo) {
-                        $totalCategoria = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+                        $totalCategoria = Compra::whereBetween('fecha', [$fecha_inicial, $fecha_final])
                             ->where('id_estado', 1)
                             ->where('id_categoria', $categoria->id)
                             ->sum('total');
@@ -391,14 +679,72 @@ class PlanillaController extends Controller
                 return $b['total'] <=> $a['total'];
             });
 
-            Log::info('Tipos de planilla procesados:', [
+            Log::info('Tipos de compras procesados:', [
                 'total_tipos' => count($tipos_categorias),
                 'tipos' => $tipos_categorias
             ]);
 
             return $tipos_categorias;
         } catch (\Throwable $th) {
-            Log::error('Error en tiposMes planillas:', ['error' => $th->getMessage()]);
+            Log::error('Error en tiposAnual en compras:', ['error' => $th->getMessage()]);
+            return [];
+        }
+    }
+    public function tiposGastosAnua($year, $mes)
+    {
+        try {
+            $fecha_inicial = Carbon::create($year, $mes, 1)->startOfMonth()->format('Y-m-d');
+            $fecha_final = Carbon::create($year, $mes, 1)->endOfMonth()->format('Y-m-d');
+
+            $tipos_categorias = [];
+            $tipos = GastoTipo::all();
+            $categorias = GastoCategoria::all();
+
+            $totalMes = Gasto::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+                ->where('id_estado', 1)
+                ->sum('total');
+
+            Log::info('Total Gasto Tipo Mes:', ['total' => $totalMes]);
+
+            // ✅ Incluir todos los tipos, incluso los que tienen 0
+            foreach ($tipos as $tipo) {
+                $contadorTipo = 0;
+                $id_tipo = $tipo->id;
+                $descripcion_tipo = $tipo->descripcion;
+
+                foreach ($categorias as $categoria) {
+                    if ($categoria->id_tipo == $id_tipo) {
+                        $totalCategoria = Gasto::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+                            ->where('id_estado', 1)
+                            ->where('id_categoria', $categoria->id)
+                            ->sum('total');
+                        $contadorTipo += $totalCategoria;
+                    }
+                }
+
+                // ✅ Incluir TODOS los tipos, incluso con $contadorTipo = 0
+                $porcentaje = $totalMes > 0 ? ($contadorTipo * 100) / $totalMes : 0;
+                $porcentaje = number_format($porcentaje, 2, '.', '');
+
+                $tipos_categorias[] = [
+                    'descripcion' => $descripcion_tipo,
+                    'total' => $contadorTipo,
+                    'porcentaje' => $porcentaje
+                ];
+            }
+
+            usort($tipos_categorias, function ($a, $b) {
+                return $b['total'] <=> $a['total'];
+            });
+
+            Log::info('Tipos de gastos procesados:', [
+                'total_tipos' => count($tipos_categorias),
+                'tipos' => $tipos_categorias
+            ]);
+
+            return $tipos_categorias;
+        } catch (\Throwable $th) {
+            Log::error('Error en tiposAnual en gastos:', ['error' => $th->getMessage()]);
             return [];
         }
     }
@@ -724,123 +1070,9 @@ class PlanillaController extends Controller
         return $analisis;
     }
 
-    public function areasMes($year, $mes)
-    {
-        try {
-            $fecha_inicial = Carbon::create($year, $mes, 1)->startOfMonth()->format('Y-m-d');
-            $fecha_final = Carbon::create($year, $mes, 1)->endOfMonth()->format('Y-m-d');
-
-            Log::info('DEBUG areasMes - Iniciando:', [
-                'year' => $year,
-                'mes' => $mes,
-                'fecha_inicial' => $fecha_inicial,
-                'fecha_final' => $fecha_final
-            ]);
-
-            // ✅ Ahora que las relaciones están correctas, usar whereHas
-            $areas_categorias = [];
-
-            // Obtener áreas únicas que tienen planillas
-            $areas = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
-                ->where('id_estado', 1)
-                ->with('empleado.categoria')
-                ->get()
-                ->pluck('empleado.categoria.area')
-                ->filter() // Quitar nulls
-                ->unique()
-                ->values();
-
-            Log::info('DEBUG areasMes - Áreas encontradas:', [
-                'areas_count' => $areas->count(),
-                'areas' => $areas->toArray()
-            ]);
-
-            $totalMes = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
-                ->where('id_estado', 1)
-                ->sum('total');
-
-            Log::info('DEBUG areasMes - Total del mes:', ['total' => $totalMes]);
-
-            // Iterar por cada área
-            foreach ($areas as $area_nombre) {
-                if (empty($area_nombre)) continue;
-
-                Log::info('DEBUG areasMes - Procesando área:', ['area' => $area_nombre]);
-
-                // ✅ Usar whereHas con relaciones correctas
-                $totalArea = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
-                    ->where('id_estado', 1)
-                    ->whereHas('empleado.categoria', function ($query) use ($area_nombre) {
-                        $query->where('area', $area_nombre);
-                    })
-                    ->sum('total');
-
-                Log::info('DEBUG areasMes - Total área:', [
-                    'area' => $area_nombre,
-                    'total' => $totalArea
-                ]);
-
-                if ($totalArea > 0) {
-                    $porcentaje = $totalMes > 0 ? ($totalArea * 100) / $totalMes : 0;
-                    $porcentaje = number_format($porcentaje, 2, '.', '');
-
-                    $areas_categorias[] = [
-                        'descripcion' => "Área: " . $area_nombre,
-                        'total' => $totalArea,
-                        'porcentaje' => $porcentaje
-                    ];
-                }
-            }
-
-            // Verificar empleados sin área
-            $totalSinArea = Planilla::whereBetween('fecha', [$fecha_inicial, $fecha_final])
-                ->where('id_estado', 1)
-                ->whereHas('empleado.categoria', function ($query) {
-                    $query->where(function ($q) {
-                        $q->whereNull('area')
-                            ->orWhere('area', '')
-                            ->orWhere('area', 'Sin área');
-                    });
-                })
-                ->sum('total');
-
-            if ($totalSinArea > 0) {
-                $porcentajeSinArea = $totalMes > 0 ? ($totalSinArea * 100) / $totalMes : 0;
-                $porcentajeSinArea = number_format($porcentajeSinArea, 2, '.', '');
-
-                $areas_categorias[] = [
-                    'descripcion' => "Área: Sin área definida",
-                    'total' => $totalSinArea,
-                    'porcentaje' => $porcentajeSinArea
-                ];
-            }
-
-            // Ordenar por total descendente
-            usort($areas_categorias, function ($a, $b) {
-                return $b['total'] <=> $a['total'];
-            });
-
-            Log::info('DEBUG areasMes - Resultado final:', [
-                'total_areas' => count($areas_categorias),
-                'areas' => $areas_categorias
-            ]);
-
-            return $areas_categorias;
-        } catch (\Throwable $th) {
-            Log::error('Error en areasMes:', [
-                'error' => $th->getMessage(),
-                'line' => $th->getLine(),
-                'file' => $th->getFile()
-            ]);
-            return [];
-        }
-    }
-
 
     /**
      * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
      */
     public function create()
     {
@@ -849,9 +1081,6 @@ class PlanillaController extends Controller
 
     /**
      * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
      */
     public function store(Request $request)
     {
@@ -860,45 +1089,32 @@ class PlanillaController extends Controller
 
     /**
      * Display the specified resource.
-     *
-     * @param  \App\Models\Planilla  $planilla
-     * @return \Illuminate\Http\Response
      */
-    public function show(Planilla $planilla)
+    public function show(string $id)
     {
         //
     }
 
     /**
      * Show the form for editing the specified resource.
-     *
-     * @param  \App\Models\Planilla  $planilla
-     * @return \Illuminate\Http\Response
      */
-    public function edit(Planilla $planilla)
+    public function edit(string $id)
     {
         //
     }
 
     /**
      * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Planilla  $planilla
-     * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, Planilla $planilla)
+    public function update(Request $request, string $id)
     {
         //
     }
 
     /**
      * Remove the specified resource from storage.
-     *
-     * @param  \App\Models\Planilla  $planilla
-     * @return \Illuminate\Http\Response
      */
-    public function destroy(Planilla $planilla)
+    public function destroy(string $id)
     {
         //
     }

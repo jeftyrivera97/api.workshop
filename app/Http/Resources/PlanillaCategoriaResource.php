@@ -17,9 +17,9 @@ class PlanillaCategoriaResource extends JsonResource
         return [
             'id' => $this->id,
             'descripcion' => $this->descripcion,
-            'id_tipo' => TipoCompraResource::collection($this->tipos),
-            'id_estado' => EstadoResource::collection($this->estados),
-            'id_usuario' => UserResource::collection($this->users),
+            'tipo' => new TipoPlanillaResource($this->tipo),
+            'estado' => new EstadoResource($this->estado),
+            'usuario' => new UserResource($this->usuario),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

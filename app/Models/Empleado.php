@@ -12,23 +12,32 @@ class Empleado extends Model
 {
     use HasFactory;
     use SoftDeletes;
+    
     protected $table = "empleados";
     protected $primaryKey = 'id';
     protected $fillable = ['codigo_empleado', 'descripcion', 'id_categoria', 'telefono', 'id_estado', 'id_usuario', 'created_at', 'updated_at'];
 
-
-    public function categorias(): HasMany
+    // ✅ CORREGIDO: BelongsTo para relación con categoría
+    public function categoria(): BelongsTo
     {
-        return $this->hasMany(EmpleadoCategoria::class, 'id', 'id_categoria');
+        return $this->belongsTo(EmpleadoCategoria::class, 'id_categoria', 'id');
     }
 
-    public function estados(): HasMany
+    // ✅ CORREGIDO: BelongsTo para relación con estado
+    public function estado(): BelongsTo
     {
-        return $this->hasMany(Estado::class, 'id', 'id_estado');
+        return $this->belongsTo(Estado::class, 'id_estado', 'id');
     }
 
-    public function users(): HasMany
+    // ✅ CORREGIDO: BelongsTo para relación con usuario
+    public function usuario(): BelongsTo
     {
-        return $this->hasMany(User::class, 'id', 'id_usuario');
+        return $this->belongsTo(User::class, 'id_usuario', 'id');
+    }
+
+    // ✅ AGREGAR: HasMany para planillas
+    public function planillas(): HasMany
+    {
+        return $this->hasMany(Planilla::class, 'id_empleado', 'id');
     }
 }

@@ -10,23 +10,34 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PlanillaCategoria extends Model
 {
+    use HasFactory;
     use SoftDeletes;
+    
     protected $table="planilla_categorias";
     protected $primaryKey = 'id';
     protected $fillable = ['descripcion','id_tipo','id_estado','id_usuario','created_at','updated_at'];
 
-    public function estados(): HasMany
+    // ✅ CORREGIDO: BelongsTo en lugar de HasMany
+    public function estado(): BelongsTo
     {
-        return $this->hasMany(Estado::class, 'id', 'id_estado');
+        return $this->belongsTo(Estado::class, 'id_estado', 'id');
     }
 
-    public function users(): HasMany
+    // ✅ CORREGIDO: BelongsTo en lugar de HasMany
+    public function usuario(): BelongsTo
     {
-        return $this->hasMany(User::class, 'id', 'id_usuario');
+        return $this->belongsTo(User::class, 'id_usuario', 'id');
     }
 
-    public function tipos(): HasMany
+    // ✅ CORREGIDO: BelongsTo en lugar de HasMany
+    public function tipo(): BelongsTo
     {
-        return $this->hasMany(PlanillaTipo::class, 'id', 'id_tipo');
+        return $this->belongsTo(PlanillaTipo::class, 'id_tipo', 'id');
+    }
+
+    // ✅ AGREGADO: Relación inversa con planillas
+    public function planillas(): HasMany
+    {
+        return $this->hasMany(Planilla::class, 'id_categoria', 'id');
     }
 }

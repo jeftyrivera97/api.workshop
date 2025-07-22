@@ -17,12 +17,12 @@ class PlanillaResource extends JsonResource
         return [
             'id' => $this->id,
             'descripcion' => $this->descripcion,
-            'id_categoria' => PlanillaCategoriaResource::collection($this->categorias),
             'fecha' => $this->fecha,
-            'id_empleado' => EmpleadoResource::collection($this->empleados),
-            'total' =>  $this->total,
-            'id_estado' => EstadoResource::collection($this->estados),
-            'id_usuario' => UserResource::collection($this->users),
+            'categoria' => new PlanillaCategoriaResource($this->categoria),
+            'empleado' => new EmpleadoResource($this->empleado),
+            'total' => $this->total,
+            'estado' => new EstadoResource($this->estado),
+            'usuario' => new UserResource($this->usuario),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

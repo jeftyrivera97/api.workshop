@@ -18,10 +18,13 @@ class EmpleadoResource extends JsonResource
             'id' => $this->id,
             'codigo_empleado' => $this->codigo_empleado,
             'descripcion' => $this->descripcion,
-            'id_categoria' => EmpleadoCategoriaResource::collection($this->categorias),
-            'telefono' =>  $this->telefono,
-            'id_estado' => EstadoResource::collection($this->estados),
-            'id_usuario' => UserResource::collection($this->users),
+            // ✅ CORREGIDO: categoria es un objeto único, no colección
+            'categoria' => new EmpleadoCategoriaResource($this->whenLoaded('categoria')),
+            'telefono' => $this->telefono,
+            // ✅ CORREGIDO: estado es un objeto único, no colección
+            'estado' => new EstadoResource($this->whenLoaded('estado')),
+            // ✅ CORREGIDO: usuario es un objeto único, no colección
+            'usuario' => new UserResource($this->whenLoaded('usuario')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
