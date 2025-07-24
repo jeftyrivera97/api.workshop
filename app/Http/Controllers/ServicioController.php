@@ -92,7 +92,7 @@ class ServicioController extends Controller
 
 
             $data = ServicioResource::collection(
-                Servicio::with(['categoria', 'estado', 'usuario']) // <-- corregido, sin 'servicio.categoria'
+                Servicio::with(['categoria', 'estado', 'usuario', 'cliente', 'auto']) // <-- corregido, sin 'servicio.categoria'
                     ->where('id_estado', 1)
                     ->whereBetween('fecha', [$fecha_inicial, $fecha_final])
                     ->orderBy('fecha', 'desc')

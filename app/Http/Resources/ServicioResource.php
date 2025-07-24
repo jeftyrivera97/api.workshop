@@ -17,6 +17,7 @@ class ServicioResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'fecha' => $this->fecha,
             'descripcion' => $this->descripcion,
             'cliente' => $this->whenLoaded('cliente', function () {
                 return new ClienteResource($this->cliente);
