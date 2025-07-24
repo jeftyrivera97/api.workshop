@@ -88,10 +88,11 @@ class ServicioController extends Controller
             $dataGraficaMes = $this->graficaMes($year);
 
             $categoriasMes = $this->categoriasMes($year, $mes);
+            $autosMes = $this->autosMes($year, $mes);
 
 
             $data = ServicioResource::collection(
-                Servicio::with(['categoria', 'estado', 'usuario', 'servicio.categoria']) // 
+                Servicio::with(['categoria', 'estado', 'usuario']) // <-- corregido, sin 'servicio.categoria'
                     ->where('id_estado', 1)
                     ->whereBetween('fecha', [$fecha_inicial, $fecha_final])
                     ->orderBy('fecha', 'desc')
@@ -99,17 +100,19 @@ class ServicioController extends Controller
             )
                 ->additional([
                     'tableHeaders' => $tableHeaders,
-                    'contador' => $registrosMesActual->count(),
+                    'counter' => $registrosMesActual->count(),
                     'moduleName' => $moduleName,
                     'moduleTitle' => $moduleTitle,
                     'totalMes' => $totalMes,
                     'totalAnual' => $totalAnual,
                     'dataGraficaMes' => $dataGraficaMes,
                     'totalMesYearAnterior' => $totalMesYearAnterior,
-                    'tiposMes' => $moduleName,
-                     'categoriasMes' => $categoriasMes,
+                    'tiposMes' => $autosMes,
+                    'categoriasMes' => $categoriasMes,
                     'analisisMensual' => $moduleName,
                 ]);
+
+                return $data;
         } catch (\Throwable $th) {
             Log::info('Error recibido:', ['error' => $th->getMessage()]);
             return response()->json([
@@ -119,14 +122,14 @@ class ServicioController extends Controller
         }
     }
 
-      public function tiposMes($year, $mes) //Autos
+      public function autosMes($year, $mes) //Autos
     {
 
         try {
             $fecha_inicial = Carbon::create($year, $mes, 1)->startOfMonth()->format('Y-m-d');
             $fecha_final = Carbon::create($year, $mes, 1)->endOfMonth()->format('Y-m-d');
 
-            $dataCategorias = [];
+            $dataAutos = [];
             $modelosAutos = Auto::all();
 
             $total = Servicio::whereBetween('fecha', [$fecha_inicial, $fecha_final])
@@ -143,23 +146,28 @@ class ServicioController extends Controller
                     ->where('id_auto', $modelo->id)
                     ->sum('total');
 
+                $totalUnidades = Servicio::whereBetween('fecha', [$fecha_inicial, $fecha_final])
+                    ->where('id_estado', 1)
+                    ->where('id_auto', $modelo->id)
+                    ->count();
+
                 if ($totalIngreso > 0) {
                     $porcentaje = ($totalIngreso * 100) / $total;
                     $porcentaje = number_format($porcentaje, 2, '.', '');
 
-                    $dataCategorias[] = [
-                        'descripcion' => $modelo->descripcion,
+                    $dataAutos[] = [
+                        'descripcion' =>  $modelo->modelo . ' ' . $modelo->year . ' ' . $modelo->traccion . ' (' . $totalUnidades . ' unds.) ',
                         'total' => $totalIngreso,
                         'porcentaje' => $porcentaje
                     ];
                 }
             }
 
-            usort($dataCategorias, function ($a, $b) {
+            usort($dataAutos, function ($a, $b) {
                 return $b['total'] <=> $a['total'];
             });
 
-            return $dataCategorias;
+            return $dataAutos;
         } catch (\Throwable $th) {
             Log::info('Error recibido:', ['error' => $th->getMessage()]);
             return response()->json([
@@ -265,38 +273,6 @@ class ServicioController extends Controller
         }
     }
 
-    public function corregirTotales()
-    {
-        try {
-            $ingresosMesActual = Ingreso::all();
-
-            foreach ($ingresosMesActual as $ingreso) {
-                // Buscar todos los IngresoServicio relacionados a este ingreso
-                $ingreso_servicios = IngresoServicio::where('id_ingreso', $ingreso->id)->get();
-
-                foreach ($ingreso_servicios as $ingreso_servicio) {
-                    $servicio = Servicio::find($ingreso_servicio->id_servicio);
-                    if ($servicio) {
-                        $servicio->total = $ingreso->total;
-                        $servicio->save();
-                    } else {
-                        Log::info('Servicio no encontrado para el ingreso_servicio:', [
-                            'ingreso_id' => $ingreso->id,
-                            'id_servicio' => $ingreso_servicio->id_servicio
-                        ]);
-                    }
-                }
-            }
-
-            return response()->json(['success' => true, 'message' => 'Totales corregidos correctamente.']);
-        } catch (\Throwable $th) {
-            Log::info('Error recibido:', ['error' => $th->getMessage()]);
-            return response()->json([
-                'error' => 'Error al actualizar los resultados',
-                'message' => $th->getMessage(),
-            ], 500);
-        }
-    }
 
 
     /**
