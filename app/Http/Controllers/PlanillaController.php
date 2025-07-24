@@ -50,17 +50,6 @@ class PlanillaController extends Controller
             $fecha_inicial_year_anterior = Carbon::createFromFormat('Y-m', $monthParam)->subYear()->startOfMonth()->format('Y-m-d');
             $fecha_final_year_anterior = Carbon::createFromFormat('Y-m', $monthParam)->subYear()->endOfMonth()->format('Y-m-d');
 
-            Log::info('Fechas Obtenidas:', [
-                'Fecha Inicial Seleccionada' => $fecha_inicial,
-                'Fecha Final Seleccionada' => $fecha_final,
-                'Mes Actual' => $mes,
-                'Mes Actual Formateado' => $mesFormatted,
-                'Año Actual' => $year,
-                'Fecha Inicial Anterior' => $fecha_inicial_anterior,
-                'Fecha Final Anterior' => $fecha_final_anterior,
-                'Mes Anterior' => $mesAnterior,
-                'Mes Anterior Formateado' => $mesAnteriorFormatted,
-            ]);
 
             $tableHeaders = array(
                 1 => "ID",

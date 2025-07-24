@@ -5,28 +5,26 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-
 
 class IngresoServicio extends Model
 {
     use HasFactory;
     use SoftDeletes;
-    protected $table="ingreso_servicios";
+    protected $table = "ingreso_servicios";
     protected $primaryKey = 'id';
-    protected $fillable = ['id_ingreso','id_servicio','id_estado','created_at','updated_at'];
+    protected $fillable = ['id_ingreso', 'id_servicio', 'id_estado', 'created_at', 'updated_at'];
 
-    public function estados(): HasMany
+    public function estado(): BelongsTo
     {
-        return $this->hasMany(Estado::class, 'id', 'id_estado');
+        return $this->belongsTo(Estado::class, 'id_estado', 'id');
     }
-    public function ingresos(): HasMany
+    public function ingreso(): BelongsTo
     {
-        return $this->hasMany(Ingreso::class, 'id', 'id_ingreso');
+        return $this->belongsTo(Ingreso::class, 'id_ingreso', 'id');
     }
-    public function servicios(): HasMany
+    public function servicio(): BelongsTo
     {
-        return $this->hasMany(Servicio::class, 'id', 'id_servicio');
+        return $this->belongsTo(Servicio::class, 'id_servicio', 'id');
     }
 }

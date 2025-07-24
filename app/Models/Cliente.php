@@ -16,12 +16,12 @@ class Cliente extends Model
     protected $primaryKey = 'id';
     protected $fillable = ['codigo_cliente','descripcion','telefono','id_estado','id_usuario','created_at','updated_at'];
 
-    public function estados(): HasMany
+    public function estado(): BelongsTo
     {
-        return $this->hasMany(Estado::class, 'id', 'id_estado');
+        return $this->belongsTo(Estado::class, 'id_estado', 'id');
     }
-    public function users(): HasMany
+    public function usuario(): BelongsTo
     {
-        return $this->hasMany(User::class, 'id', 'id_usuario');
+        return $this->belongsTo(User::class, 'id_usuario', 'id');
     }
 }

@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class IngresoCategoriaResource extends JsonResource
+class ServicioCategoriaResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -17,9 +17,12 @@ class IngresoCategoriaResource extends JsonResource
         return [
             'id' => $this->id,
             'descripcion' => $this->descripcion,
-            'tipo' => new TipoIngresoResource($this->whenLoaded('tipo')),
-            'estado' => new EstadoResource($this->whenLoaded('estado')),
-            'usuario' => new UserResource($this->whenLoaded('usuario')),
+            'estado' => $this->whenLoaded('estado', function () {
+                return new EstadoResource($this->estado);
+            }),
+            'usuario' => $this->whenLoaded('usuario', function () {
+                return new UserResource($this->usuario);
+             }),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

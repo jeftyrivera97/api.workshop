@@ -5,30 +5,28 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-
 
 class IngresoCategoria extends Model
 {
     use HasFactory;
     use SoftDeletes;
-    protected $table="ingreso_categorias";
+    protected $table = "ingreso_categorias";
     protected $primaryKey = 'id';
-    protected $fillable = ['descripcion','id_tipo','id_estado','created_at','updated_at','id_usuario'];
+    protected $fillable = ['descripcion', 'id_tipo', 'id_estado', 'created_at', 'updated_at', 'id_usuario'];
 
-    public function estados(): HasMany
+    public function estado(): BelongsTo
     {
-        return $this->hasMany(Estado::class, 'id', 'id_estado');
+        return $this->belongsTo(Estado::class, 'id_estado', 'id');
     }
 
-    public function users(): HasMany
+    public function usuario(): BelongsTo
     {
-        return $this->hasMany(User::class, 'id', 'id_usuario');
+        return $this->belongsTo(User::class, 'id_usuario', 'id');
     }
 
-    public function tipos(): HasMany
+    public function tipo(): BelongsTo
     {
-        return $this->hasMany(IngresoTipo::class, 'id', 'id_tipo');
+        return $this->belongsTo(IngresoTipo::class, 'id_tipo', 'id');
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources;
 
-use App\Models\AutoMarca;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -17,16 +16,16 @@ class AutoResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'id_marca' => AutoMarcaResource::collection($this->marcas),
+            'marca' => new AutoMarcaResource($this->whenLoaded('marca')),
             'modelo' => $this->modelo,
-            'year' => $this->modelo,
+            'year' => $this->year,
             'base' => $this->base,
             'traccion' => $this->traccion,
             'cilindraje' => $this->cilindraje,
             'combustion' => $this->combustion,
-            'id_categoria' => AutoCategoriaResource::collection($this->categorias),
-            'id_estado' => EstadoResource::collection($this->estados),
-            'id_usuario' => UserResource::collection($this->users),
+            'categoria' => new AutoCategoriaResource($this->whenLoaded('categoria')),
+            'estado' => new EstadoResource($this->whenLoaded('estado')),
+            'usuario' => new UserResource($this->whenLoaded('usuario')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

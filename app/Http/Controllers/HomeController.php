@@ -15,11 +15,19 @@ use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
+use function Pest\Laravel\json;
+
 class HomeController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
+
+    public function saludo()
+    {
+        return "Hola, bienvenido al sistema de gestión de ingresos y egresos.";
+    }
+
     public function index()
     {
         try {

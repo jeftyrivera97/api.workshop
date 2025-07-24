@@ -17,10 +17,10 @@ class TipoIngresoResource extends JsonResource
         return [
             'id' => $this->id,
             'descripcion' => $this->descripcion,
-            'id_estado' => EstadoResource::collection($this->estados),
-            'id_usuario' => UserResource::collection($this->users),
-            'created_at' => $this->descripcion,
-            'updated_at' => $this->descripcion,
+            'estado' => new EstadoResource($this->whenLoaded('estado')),
+            'usuario' => new UserResource($this->whenLoaded('usuario')),
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
         ];
     }
 }

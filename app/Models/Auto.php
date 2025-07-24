@@ -16,20 +16,20 @@ class Auto extends Model
     protected $primaryKey = 'id';
     protected $fillable = ['id_marca','modelo','year','base','traccion','cilindraje','combustion','id_categoria','id_estado','id_usuario','created_at','updated_at'];
 
-    public function categorias(): HasMany
+    public function categoria(): BelongsTo
     {
-        return $this->hasMany(AutoCategoria::class, 'id', 'id_categoria');
+        return $this->belongsTo(AutoCategoria::class, 'id_categoria', 'id');
     }
-    public function marcas(): HasMany
+    public function marca(): BelongsTo
     {
-        return $this->hasMany(AutoMarca::class, 'id', 'id_marca');
+        return $this->belongsTo(AutoMarca::class, 'id_marca', 'id');
     }
-    public function estados(): HasMany
+    public function estado(): BelongsTo
     {
-        return $this->hasMany(Estado::class, 'id', 'id_estado');
+        return $this->belongsTo(Estado::class, 'id_estado', 'id');
     }
-    public function users(): HasMany
+    public function usuario(): BelongsTo
     {
-        return $this->hasMany(User::class, 'id', 'id_usuario');
+        return $this->belongsTo(User::class, 'id_usuario', 'id');
     }
 }

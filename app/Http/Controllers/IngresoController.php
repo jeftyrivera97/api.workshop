@@ -47,18 +47,6 @@ class IngresoController extends Controller
             $fecha_inicial_year_anterior = Carbon::createFromFormat('Y-m', $monthParam)->subYear()->startOfMonth()->format('Y-m-d');
             $fecha_final_year_anterior = Carbon::createFromFormat('Y-m', $monthParam)->subYear()->endOfMonth()->format('Y-m-d');
 
-            Log::info('Fechas Obtenidas:', [
-                'Fecha Inicial Seleccionada' => $fecha_inicial,
-                'Fecha Final Seleccionada' => $fecha_final,
-                'Mes Actual' => $mes,
-                'Mes Actual Formateado' => $mesFormatted,
-                'Año Actual' => $year,
-                'Fecha Inicial Anterior' => $fecha_inicial_anterior,
-                'Fecha Final Anterior' => $fecha_final_anterior,
-                'Mes Anterior' => $mesAnterior,
-                'Mes Anterior Formateado' => $mesAnteriorFormatted,
-            ]);
-
             $tableHeaders = array(
                 1 => "ID",
                 2 => "Fecha",
@@ -73,7 +61,7 @@ class IngresoController extends Controller
             $dataGraficaMes = $this->graficaMes($year);
 
             $registrosMesActual = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])
-                ->where('id_estado', 1) // ✅ Agregar filtro
+                ->where('id_estado', 1) // Agregar filtro
                 ->get();
 
             $totalMes = Ingreso::whereBetween('fecha', [$fecha_inicial, $fecha_final])
@@ -343,7 +331,7 @@ class IngresoController extends Controller
         foreach ($tiposAnalisis as $tipoNombre => $config) {
             $tipoData = collect($tipos)->where('descripcion', $tipoNombre)->first();
             
-            if ($tipoData) {
+            if ($tipoData && isset($tipoData['porcentaje'])) {
                 $porcentaje = floatval($tipoData['porcentaje']);
                 $rangoEncontrado = null;
                 

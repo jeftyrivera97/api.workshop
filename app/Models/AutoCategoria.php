@@ -25,5 +25,16 @@ class AutoCategoria extends Model
     {
         return $this->hasMany(User::class, 'id', 'id_usuario');
     }
-
+    public function estado(): BelongsTo
+    {
+        return $this->belongsTo(Estado::class, 'id_estado', 'id');
+    }
+    public function usuario(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_usuario', 'id');
+    }
+    public function autos(): HasMany
+    {
+        return $this->hasMany(Auto::class, 'id_categoria', 'id');
+    }
 }
