@@ -16,6 +16,7 @@ use App\Http\Middleware\EnsureTokenIsValid;
 // Ruta pública para login
 Route::post('/login', [UserController::class, 'login']);
 Route::middleware('auth:sanctum')->get('/user/renew/token', [UserController::class, 'renewToken']);
+Route::middleware('auth:sanctum')->get('/user', [UserController::class, 'user']);
 
 Route::get('/empleado', [EmpleadoController::class, 'index'])->middleware(['auth:sanctum', EnsureTokenIsValid::class]);
 Route::get('/compra', [CompraController::class, 'index'])->middleware(['auth:sanctum', EnsureTokenIsValid::class]);

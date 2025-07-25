@@ -92,7 +92,17 @@ class ServicioController extends Controller
 
 
             $data = ServicioResource::collection(
-                Servicio::with(['categoria', 'estado', 'usuario', 'cliente', 'auto']) // <-- corregido, sin 'servicio.categoria'
+                Servicio::with([
+                    'categoria',
+                    'estado',
+                    'usuario',
+                    'cliente',
+                    'auto.marca',      // <--- agrega esto
+                    'auto.categoria',  // <--- y esto
+                    'auto.estado',     // (opcional, si quieres el estado del auto)
+                    'auto.usuario',    // (opcional, si quieres el usuario del auto)
+                    'pagoCategoria'
+                ])
                     ->where('id_estado', 1)
                     ->whereBetween('fecha', [$fecha_inicial, $fecha_final])
                     ->orderBy('fecha', 'desc')
@@ -112,7 +122,7 @@ class ServicioController extends Controller
                     'analisisMensual' => $moduleName,
                 ]);
 
-                return $data;
+            return $data;
         } catch (\Throwable $th) {
             Log::info('Error recibido:', ['error' => $th->getMessage()]);
             return response()->json([
@@ -122,7 +132,7 @@ class ServicioController extends Controller
         }
     }
 
-      public function autosMes($year, $mes) //Autos
+    public function autosMes($year, $mes) //Autos
     {
 
         try {
@@ -131,6 +141,7 @@ class ServicioController extends Controller
 
             $dataAutos = [];
             $modelosAutos = Auto::all();
+           
 
             $total = Servicio::whereBetween('fecha', [$fecha_inicial, $fecha_final])
                 ->where('id_estado', 1)
@@ -151,12 +162,15 @@ class ServicioController extends Controller
                     ->where('id_auto', $modelo->id)
                     ->count();
 
+                 $marca = $modelo->marca ? $modelo->marca->descripcion : 'Sin Marca';
+
                 if ($totalIngreso > 0) {
                     $porcentaje = ($totalIngreso * 100) / $total;
                     $porcentaje = number_format($porcentaje, 2, '.', '');
 
                     $dataAutos[] = [
-                        'descripcion' =>  $modelo->modelo . ' ' . $modelo->year . ' ' . $modelo->traccion . ' (' . $totalUnidades . ' unds.) ',
+                        'descripcion' => $marca . ' ' . $modelo->modelo . ' ' . $modelo->year . ' ' . $modelo->traccion,
+                        'unidades' => $totalUnidades,
                         'total' => $totalIngreso,
                         'porcentaje' => $porcentaje
                     ];
@@ -178,7 +192,7 @@ class ServicioController extends Controller
     }
 
 
-      public function categoriasMes($year, $mes)
+    public function categoriasMes($year, $mes)
     {
 
         try {

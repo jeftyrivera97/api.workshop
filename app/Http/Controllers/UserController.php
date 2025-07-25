@@ -23,9 +23,11 @@ class UserController extends Controller
             ], 401);
         }
         $token = $user->createToken($user->name . '-AuthToken')->plainTextToken;
+       $expires_at = now()->addHour()->toIso8601String(); // Expira en 1 hora
         return response()->json([
             'access_token' => $token,
             'user' => $user,
+            'expires_at' => $expires_at
         ]);
     }
 
@@ -33,10 +35,19 @@ class UserController extends Controller
     {
         $user = $request->user();
         $token = $user->createToken($user->name . '-AuthToken')->plainTextToken;
+      $expires_at = now()->addHour()->toIso8601String(); // Expira en 1 hora
 
         return response()->json([
             'access_token' => $token,
             'user' => $user,
+            'expires_at' => $expires_at
+        ]);
+    }
+
+    public function user(Request $request)
+    {
+        return response()->json([
+            'user' => $request->user()
         ]);
     }
 }

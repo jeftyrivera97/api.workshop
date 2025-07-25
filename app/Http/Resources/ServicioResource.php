@@ -31,7 +31,9 @@ class ServicioResource extends JsonResource
             'color' => $this->color,
             'placa' => $this->placa,
             'total' => $this->total,
-            'id_pago_categoria' => $this->id_pago_categoria,
+            'pagoCategoria' => $this->whenLoaded('pagoCategoria', function () {
+                return new PagoCategoriaResource($this->pagoCategoria);
+            }),
             'estado' => $this->whenLoaded('estado', function () {
                 return new EstadoResource($this->estado);
             }),

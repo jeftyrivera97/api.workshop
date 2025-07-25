@@ -16,16 +16,24 @@ class AutoResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'marca' => new AutoMarcaResource($this->whenLoaded('marca')),
+            'marca' => $this->whenLoaded('marca', function () {
+                return new AutoMarcaResource($this->marca);
+            }),
             'modelo' => $this->modelo,
             'year' => $this->year,
             'base' => $this->base,
             'traccion' => $this->traccion,
             'cilindraje' => $this->cilindraje,
             'combustion' => $this->combustion,
-            'categoria' => new AutoCategoriaResource($this->whenLoaded('categoria')),
-            'estado' => new EstadoResource($this->whenLoaded('estado')),
-            'usuario' => new UserResource($this->whenLoaded('usuario')),
+            'categoria' => $this->whenLoaded('categoria', function () {
+                return new AutoCategoriaResource($this->categoria);
+            }),
+            'estado' => $this->whenLoaded('estado', function () {
+                return new EstadoResource($this->estado);
+            }),
+            'usuario' => $this->whenLoaded('usuario', function () {
+                return new UserResource($this->usuario);
+            }),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
