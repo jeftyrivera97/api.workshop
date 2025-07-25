@@ -110,7 +110,7 @@ class ServicioController extends Controller
             )
                 ->additional([
                     'tableHeaders' => $tableHeaders,
-                    'counter' => $registrosMesActual->count(),
+                    'contador' => $registrosMesActual->count(),
                     'moduleName' => $moduleName,
                     'moduleTitle' => $moduleTitle,
                     'totalMes' => $totalMes,
